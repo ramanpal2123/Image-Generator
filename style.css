@@ -12,6 +12,8 @@ body {
     font-family: Arial, sans-serif;
     background: var(--main-gradient);
     color: white;
+    padding-bottom: 80px;     
+    background-attachment: fixed;
 }
 
 /* Inputs */
@@ -50,6 +52,8 @@ button:hover {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 20px;
     padding: 20px;
+    background: transparent;  
+    min-height: auto; 
 }
 
 /* Card */
