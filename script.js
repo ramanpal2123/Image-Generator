@@ -1,82 +1,127 @@
-const mainDiv = document.getElementById('main');
+const mainGrid = document.getElementById('main-grid');
 const imgUrl = document.getElementById('url');
 const imageName = document.getElementById('name');
+const emptyState = document.getElementById('empty-state');
+const galleryCount = document.getElementById('gallery-count');
 
-// Load images on page load
+// ── Toast ──
+function showToast(msg, duration = 2800) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// ── Count ──
+function updateCount() {
+    const n = mainGrid.querySelectorAll('.card-custom').length;
+    galleryCount.textContent = n + (n === 1 ? ' image' : ' images');
+    if (n === 0) emptyState.classList.add('visible');
+    else emptyState.classList.remove('visible');
+}
+
+// ── Lightbox ──
+function openLightbox(src, name) {
+    const lb = document.getElementById('lightbox');
+    document.getElementById('lb-img').src = src;
+    document.getElementById('lb-name').textContent = name || 'Untitled';
+    lb.classList.add('open');
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeLightbox();
+});
+
+// ── Load from storage ──
 window.onload = () => {
-    const images = JSON.parse(localStorage.getItem('images')) || [];
-    images.forEach(img => createCard(img.url, img.name));
+    const images = JSON.parse(localStorage.getItem('visura-images')) || [];
+    images.forEach(img => createCard(img.url, img.name, false));
+    updateCount();
 };
 
-// Generate button function
+// ── Generate ──
 function generate() {
-    if (!imgUrl.value) {
-        alert("Please enter an image URL!");
-        return;
-    }
+    const url = imgUrl.value.trim();
+    const name = imageName.value.trim();
+    if (!url) { showToast('⚠️ Please enter an image URL!'); return; }
 
-    createCard(imgUrl.value, imageName.value);
+    createCard(url, name, true);
 
-    // Save to localStorage
-    const images = JSON.parse(localStorage.getItem('images')) || [];
-    images.push({
-        url: imgUrl.value,
-        name: imageName.value
-    });
-    localStorage.setItem('images', JSON.stringify(images));
+    const images = JSON.parse(localStorage.getItem('visura-images')) || [];
+    images.push({ url, name });
+    localStorage.setItem('visura-images', JSON.stringify(images));
 
-    // Clear inputs
     imgUrl.value = '';
     imageName.value = '';
+    imgUrl.focus();
+    showToast('✅ Image added to gallery!');
+    updateCount();
 }
 
-// Create card function
-function createCard(url, name) {
-
+// ── Create Card ──
+function createCard(url, name, animate = true) {
     const card = document.createElement('div');
     card.classList.add('card-custom');
+    if (!animate) card.style.animation = 'none';
 
-    // Image
-    const image = document.createElement('img');
-    image.src = url;
-    image.alt = name || "Image";
+    // Image wrapper
+    const imgWrap = document.createElement('div');
+    imgWrap.classList.add('card-img-wrap');
 
-    // Click to zoom
-    image.onclick = () => {
-        window.open(image.src, '_blank');
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = name || 'Image';
+    img.loading = 'lazy';
+    img.onerror = () => {
+        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="240" height="190" viewBox="0 0 240 190"%3E%3Crect fill="%23111122" width="240" height="190"/%3E%3Ctext x="50%25" y="50%25" fill="%23555" font-size="13" text-anchor="middle" dy=".3em" font-family="sans-serif"%3EImage not found%3C/text%3E%3C/svg%3E';
     };
 
-    // Title
-    const title = document.createElement('p');
-    title.innerText = name || "Untitled";
+    const overlay = document.createElement('div');
+    overlay.classList.add('card-overlay');
+    overlay.innerHTML = '<i class="fas fa-expand"></i>';
+    imgWrap.addEventListener('click', () => openLightbox(url, name || 'Untitled'));
 
-    // Delete button
+    imgWrap.appendChild(img);
+    imgWrap.appendChild(overlay);
+
+    // Card body
+    const body = document.createElement('div');
+    body.classList.add('card-body');
+
+    const title = document.createElement('span');
+    title.classList.add('card-title');
+    title.title = name || 'Untitled';
+    title.textContent = name || 'Untitled';
+
     const delBtn = document.createElement('button');
-    delBtn.innerText = "Delete";
-    delBtn.style.marginBottom = "10px";
-
+    delBtn.classList.add('del-btn');
+    delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+    delBtn.title = 'Delete image';
     delBtn.onclick = () => {
-        card.remove();
-
-        // Remove from localStorage
-        let images = JSON.parse(localStorage.getItem('images')) || [];
-        images = images.filter(img => img.url !== url);
-        localStorage.setItem('images', JSON.stringify(images));
+        card.style.transition = 'opacity 0.25s, transform 0.25s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+            card.remove();
+            let images = JSON.parse(localStorage.getItem('visura-images')) || [];
+            images = images.filter(i => !(i.url === url && i.name === name));
+            localStorage.setItem('visura-images', JSON.stringify(images));
+            updateCount();
+            showToast('🗑️ Image removed');
+        }, 260);
     };
 
-    // Append elements
-    card.appendChild(image);
-    card.appendChild(title);
-    card.appendChild(delBtn);
+    body.appendChild(title);
+    body.appendChild(delBtn);
+    card.appendChild(imgWrap);
+    card.appendChild(body);
+    mainGrid.appendChild(card);
 
-    mainDiv.appendChild(card);
+    updateCount();
 }
 
-// Enter key support
-imgUrl.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') generate();
-});
-
-imageName.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') generate();
-});
+// ── Enter key ──
+imgUrl.addEventListener('keypress', e => { if (e.key === 'Enter') generate(); });
+imageName.addEventListener('keypress', e => { if (e.key === 'Enter') generate(); });
